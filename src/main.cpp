@@ -16,6 +16,8 @@ int sound_analog = 0;
 
 bool flag = false;
 
+unsigned long timeSoundCheckInviroment = 0;
+
 void setup()
 {
   Serial.begin(115200);
@@ -36,30 +38,39 @@ void setup()
 
 void SoundCheckInviroment()
 {
-  int val_digital = digitalRead(sound_digital);
-  int val_analog = analogRead(sound_analog);
-
-  if (val_analog > 500)
+  if (timeSoundCheckInviroment < millis())
   {
-    Serial.println(val_analog);
+    int val_digital = digitalRead(sound_digital);
+    int val_analog = analogRead(sound_analog);
 
-    HTTPClient http;
-
-    String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/CheckCamera?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
-    http.begin(url);
-
-    int httpCode = http.GET();
-
-    if (httpCode > 0)
+    if (val_analog > 500)
     {
-      flag = (bool)http.getString();
+      Serial.println(val_analog);
 
-      if (flag == true)
+      HTTPClient http;
+
+      String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/CheckCamera?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
+      http.begin(url);
+
+      int httpCode = http.GET();
+
+      if (httpCode > 0)
       {
-        irsend.sendNEC(0x20DF10EF);
+        flag = (bool)http.getString();
+
+        if (flag == true)
+        {
+          timeSoundCheckInviroment = millis() + 10000;
+
+          irsend.sendNEC(0x20DF10EF);
+        }
       }
+      http.end();
     }
-    http.end();
+  }
+  if(timeSoundCheckInviroment >= 4320000000)
+  {
+    timeSoundCheckInviroment = 0;
   }
 }
 
