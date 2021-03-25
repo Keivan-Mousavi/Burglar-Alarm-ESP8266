@@ -1,5 +1,5 @@
 // AUTOMATICALLY GENERATED FILE. PLEASE DO NOT MODIFY IT MANUALLY
-
+//
 // PIO Unified Debugger
 //
 // Documentation: https://docs.platformio.org/page/plus/debugging.html
@@ -15,11 +15,11 @@
             "executable": "c:/Users/Keivan/Documents/PlatformIO/Projects/Burglar Alarm ESP8266/.pio/build/esp12e/firmware.elf",
             "projectEnvName": "esp12e",
             "toolchainBinDir": "C:/Users/Keivan/.platformio/packages/toolchain-xtensa/bin",
+            "internalConsoleOptions": "openOnSessionStart",
             "preLaunchTask": {
                 "type": "PlatformIO",
                 "task": "Pre-Debug"
-            },
-            "internalConsoleOptions": "openOnSessionStart"
+            }
         },
         {
             "type": "platformio-debug",

@@ -5,8 +5,8 @@
 #include <IRsend.h>
 #include <ArduinoJson.h>
 
-const char *ssid = "***";
-const char *password = "***";
+const char *ssid = "Keivan&Mina";
+const char *password = "K@0e#5I%8v^3A*7n?";
 
 const uint16_t kIrLed = 4;
 IRsend irsend(kIrLed);
@@ -68,7 +68,7 @@ void SoundCheckInviroment()
       http.end();
     }
   }
-  if(timeSoundCheckInviroment >= 4320000000)
+  if (timeSoundCheckInviroment >= 4320000000)
   {
     timeSoundCheckInviroment = 0;
   }
@@ -111,6 +111,45 @@ void loop()
 
     if (flag == true)
     {
+      HTTPClient http;
+
+      String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/ListAllControllerTV?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
+      http.begin(url);
+
+      irsend.begin();
+
+      int httpCode = http.GET();
+
+      if (httpCode > 0)
+      {
+        String payload = http.getString();
+
+        if (!payload.isEmpty())
+        {
+          if (payload.equals("onOffReceived"))
+          {
+            irsend.sendNEC(0x20DF10EF);
+          }
+          if (payload.equals("volumeUp"))
+          {
+            irsend.sendNEC(0x20DF40BF);
+          }
+          if (payload.equals("volumeDown"))
+          {
+            irsend.sendNEC(0x20DFC03F);
+          }
+          if (payload.equals("programUP"))
+          {
+            irsend.sendNEC(0x20DF00FF);
+          }
+          if (payload.equals("programDown"))
+          {
+            irsend.sendNEC(0x20DF807F);
+          }
+          delay(100);
+        }
+      }
+      http.end();
     }
   }
 }
