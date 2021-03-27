@@ -5,8 +5,8 @@
 #include <IRsend.h>
 #include <ArduinoJson.h>
 
-const char *ssid = "Keivan&Mina";
-const char *password = "K@0e#5I%8v^3A*7n?";
+const char *ssid = "***";
+const char *password = "***";
 
 const uint16_t kIrLed = 4;
 IRsend irsend(kIrLed);
