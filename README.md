@@ -40,11 +40,6 @@
 </table>
 
 <br />
-<p>
- <b>
-   Infrared emission sensor module 
-  </b>
- </p>
  <table style="height: 292px;" width="234">
 <tbody>
 <tr>
