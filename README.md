@@ -55,7 +55,7 @@
 </tr>
 <tr>
 <td style="width: 109px; text-align: center;">D2</td>
-<td style="width: 109px; text-align: center;">s</td>
+<td style="width: 109px; text-align: center;">S</td>
 </tr>
 </tbody>
 </table>
