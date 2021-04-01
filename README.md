@@ -82,3 +82,19 @@ The next phase of the project is on movement and face recognition.
 </table>
 
 ![ESp8266](https://user-images.githubusercontent.com/22281772/113051306-13adc800-91bb-11eb-9fc7-f225b8897caf.png)
+
+<p>
+  <b>PlatformIO.ini</b>
+</p>
+<pre>
+<code>
+  [env:esp12e]
+  platform = espressif8266
+  board = esp12e
+  framework = arduino
+  monitor_speed = 115200
+  lib_deps = 
+	  crankyoldgit/IRremoteESP8266@^2.7.14
+	  bblanchon/ArduinoJson@^6.17.2
+</code>
+</pre>
