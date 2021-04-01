@@ -17,6 +17,10 @@ The next phase of the project is on movement and face recognition.
   * It should be noted that the above module is only for demos and for large projects need a more powerful module.
  </p> 
  
+ <p>
+ The method is that the module (Big sound module) measures the ambient sound, if it was too much, using the module (Infrared emission sensor module) turns on the TV (LG) and sends an error message to the server.
+ </p>
+ 
 <p>
   <b>
     Required Device
