@@ -14,7 +14,7 @@ The next phase of the project is on movement and face recognition.
 </p>
 
 <p>
-  * It should be noted that the above module is only for demos and for large projects need a more powerful module in terms of camera power and sending images online.
+  * It should be noted that the above module is only for demos and for large projects need a more powerful module.
  </p> 
  
 <p>
