@@ -98,3 +98,15 @@ The next phase of the project is on movement and face recognition.
 	  bblanchon/ArduinoJson@^6.17.2
 </code>
 </pre>
+
+<p>
+<b>Add this librarys</b>
+  </p>
+<pre>
+<code>
+  HTTPClient
+  WiFiClientSecure
+  WiFi
+  ArduinoJson
+</code>
+</pre>
