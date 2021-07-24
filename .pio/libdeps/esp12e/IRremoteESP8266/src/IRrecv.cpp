@@ -28,7 +28,11 @@ extern "C" {
 
 #ifndef USE_IRAM_ATTR
 #if defined(ESP8266)
+#if defined(IRAM_ATTR)
+#define USE_IRAM_ATTR IRAM_ATTR
+#else  // IRAM_ATTR
 #define USE_IRAM_ATTR ICACHE_RAM_ATTR
+#endif  // IRAM_ATTR
 #endif  // ESP8266
 #if defined(ESP32)
 #define USE_IRAM_ATTR IRAM_ATTR
@@ -360,6 +364,7 @@ void IRrecv::disableIRIn(void) {
 #endif  // ESP8266
 #if defined(ESP32)
   timerAlarmDisable(timer);
+  timerEnd(timer);
 #endif  // ESP32
   detachInterrupt(params.recvpin);
 #endif  // UNIT_TEST
@@ -513,7 +518,9 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
   // interrupt. decode() is not stored in ICACHE_RAM.
   // Another better option would be to zero the entire irparams.rawbuf[] on
   // resume() but that is a much more expensive operation compare to this.
-  params.rawbuf[params.rawlen] = 0;
+  // However, don't do this if rawbuf is already full as we stomp over the heap.
+  // See: https://github.com/crankyoldgit/IRremoteESP8266/issues/1516
+  if (!params.overflow) params.rawbuf[params.rawlen] = 0;
 
   bool resumed = false;  // Flag indicating if we have resumed.
 
@@ -595,6 +602,14 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
 #if DECODE_NEC
     DPRINTLN("Attempting NEC decode");
     if (decodeNEC(results, offset)) return true;
+#endif
+#if DECODE_MILESTAG2
+    DPRINTLN("Attempting MilesTag2 decode");
+  // Try decodeMilestag2() before decodeSony() because the protocols are
+  // similar in timings & structure, but the Miles one differs in nbits
+  // so this one should be tried first to try to reduce false detection
+    if (decodeMilestag2(results, offset, kMilesTag2MsgBits) ||
+        decodeMilestag2(results, offset, kMilesTag2ShotBits)) return true;
 #endif
 #if DECODE_SONY
     DPRINTLN("Attempting Sony decode");
@@ -761,6 +776,10 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     DPRINTLN("Attempting Haier AC YR-W02 decode");
     if (decodeHaierACYRW02(results, offset)) return true;
 #endif
+#if DECODE_HAIER_AC176
+    DPRINTLN("Attempting Haier AC 176 bit decode");
+    if (decodeHaierAC176(results, offset)) return true;
+#endif  // DECODE_HAIER_AC176
 #if DECODE_HITACHI_AC424
     // HitachiAc424 should be checked before HitachiAC, HitachiAC2,
     // & HitachiAC184
@@ -924,6 +943,11 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     DPRINTLN("Attempting Doshisha decode");
     if (decodeDoshisha(results, offset)) return true;
 #endif  // DECODE_DOSHISHA
+#if DECODE_TRUMA
+    // Needs to happen before decodeMultibrackets() as they can appear similar.
+    DPRINTLN("Attempting Truma decode");
+    if (decodeTruma(results, offset)) return true;
+#endif  // DECODE_TRUMA
 #if DECODE_MULTIBRACKETS
     DPRINTLN("Attempting Multibrackets decode");
     if (decodeMultibrackets(results, offset)) return true;
@@ -983,6 +1007,23 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     if (decodePanasonicAC32(results, offset, kPanasonicAc32Bits / 2))
       return true;
 #endif  // DECODE_PANASONIC_AC32
+#if DECODE_ECOCLIM
+    DPRINTLN("Attempting Ecoclim decode");
+    if (decodeEcoclim(results, offset, kEcoclimBits) ||
+        decodeEcoclim(results, offset, kEcoclimShortBits)) return true;
+#endif  // DECODE_ECOCLIM
+#if DECODE_XMP
+    DPRINTLN("Attempting XMP decode");
+    if (decodeXmp(results, offset, kXmpBits)) return true;
+#endif  // DECODE_XMP
+#if DECODE_TEKNOPOINT
+    DPRINTLN("Attempting Teknopoint decode");
+    if (decodeTeknopoint(results, offset)) return true;
+#endif  // DECODE_TEKNOPOINT
+#if DECODE_KELON
+    DPRINTLN("Attempting Kelon decode");
+    if (decodeKelon(results, offset)) return true;
+#endif  // DECODE_KELON
   // Typically new protocols are added above this line.
   }
 #if DECODE_HASH
@@ -1121,6 +1162,26 @@ bool IRrecv::matchMark(uint32_t measured, uint32_t desired, uint8_t tolerance,
   return match(measured, desired + excess, tolerance);
 }
 
+/// Check if we match a mark signal(measured) with the desired within a
+/// range (in uSeconds) either side of the desired, after an expected is excess
+/// is added.
+/// @param[in] measured The recorded period of the signal pulse.
+/// @param[in] desired The expected period (in usecs) we are matching against.
+/// @param[in] range The range limit from desired to accept in uSeconds.
+/// @param[in] excess A non-scaling amount to reduce usecs by.
+/// @return A Boolean. true if it matches, false if it doesn't.
+bool IRrecv::matchMarkRange(const uint32_t measured, const uint32_t desired,
+                            const uint16_t range, const int16_t excess) {
+  DPRINT("Matching MARK ");
+  DPRINT(measured * kRawTick);
+  DPRINT(" vs ");
+  DPRINT(desired);
+  DPRINT(" + ");
+  DPRINT(excess);
+  DPRINT(". ");
+  return match(measured, desired + excess, 0, range);
+}
+
 /// Check if we match a space signal(measured) with the desired within
 ///  +/-tolerance percent, after an expected is excess is removed.
 /// @param[in] measured The recorded period of the signal pulse.
@@ -1138,6 +1199,26 @@ bool IRrecv::matchSpace(uint32_t measured, uint32_t desired, uint8_t tolerance,
   DPRINT(excess);
   DPRINT(". ");
   return match(measured, desired - excess, tolerance);
+}
+
+/// Check if we match a space signal(measured) with the desired within a
+/// range (in uSeconds) either side of the desired, after an expected is excess
+/// is removed.
+/// @param[in] measured The recorded period of the signal pulse.
+/// @param[in] desired The expected period (in usecs) we are matching against.
+/// @param[in] range The range limit from desired to accept in uSeconds.
+/// @param[in] excess A non-scaling amount to reduce usecs by.
+/// @return A Boolean. true if it matches, false if it doesn't.
+bool IRrecv::matchSpaceRange(const uint32_t measured, const uint32_t desired,
+                             const uint16_t range, const int16_t excess) {
+  DPRINT("Matching SPACE ");
+  DPRINT(measured * kRawTick);
+  DPRINT(" vs ");
+  DPRINT(desired);
+  DPRINT(" - ");
+  DPRINT(excess);
+  DPRINT(". ");
+  return match(measured, desired - excess, 0, range);
 }
 
 #if DECODE_HASH
@@ -1202,30 +1283,49 @@ bool IRrecv::decodeHash(decode_results *results) {
 /// @param[in] excess Nr. of uSeconds. (Def: kMarkExcess)
 /// @param[in] MSBfirst Bit order to save the data in. (Def: true)
 ///   true is Most Significant Bit First Order, false is Least Significant First
+/// @param[in] expectlastspace Do we expect a space at the end of the message?
 /// @return A match_result_t structure containing the success (or not), the
 ///   data value, and how many buffer entries were used.
 match_result_t IRrecv::matchData(
     volatile uint16_t *data_ptr, const uint16_t nbits, const uint16_t onemark,
     const uint32_t onespace, const uint16_t zeromark, const uint32_t zerospace,
-    const uint8_t tolerance, const int16_t excess, const bool MSBfirst) {
+    const uint8_t tolerance, const int16_t excess, const bool MSBfirst,
+    const bool expectlastspace) {
   match_result_t result;
   result.success = false;  // Fail by default.
   result.data = 0;
-  for (result.used = 0; result.used < nbits * 2;
-       result.used += 2, data_ptr += 2) {
-    // Is the bit a '1'?
-    if (matchMark(*data_ptr, onemark, tolerance, excess) &&
-        matchSpace(*(data_ptr + 1), onespace, tolerance, excess)) {
-      result.data = (result.data << 1) | 1;
-    } else if (matchMark(*data_ptr, zeromark, tolerance, excess) &&
-               matchSpace(*(data_ptr + 1), zerospace, tolerance, excess)) {
-      result.data <<= 1;  // The bit is a '0'.
-    } else {
-      if (!MSBfirst) result.data = reverseBits(result.data, result.used / 2);
-      return result;  // It's neither, so fail.
+  if (expectlastspace) {  // We are expecting data with a final space.
+    for (result.used = 0; result.used < nbits * 2;
+         result.used += 2, data_ptr += 2) {
+      // Is the bit a '1'?
+      if (matchMark(*data_ptr, onemark, tolerance, excess) &&
+          matchSpace(*(data_ptr + 1), onespace, tolerance, excess)) {
+        result.data = (result.data << 1) | 1;
+      } else if (matchMark(*data_ptr, zeromark, tolerance, excess) &&
+                 matchSpace(*(data_ptr + 1), zerospace, tolerance, excess)) {
+        result.data <<= 1;  // The bit is a '0'.
+      } else {
+        if (!MSBfirst) result.data = reverseBits(result.data, result.used / 2);
+        return result;  // It's neither, so fail.
+      }
+    }
+    result.success = true;
+  } else {  // We are expecting data without a final space.
+    // Match all but the last bit, as it may not match easily.
+    result = matchData(data_ptr, nbits ? nbits - 1 : 0, onemark, onespace,
+                       zeromark, zerospace, tolerance, excess, true, true);
+    if (result.success) {
+      // Is the bit a '1'?
+      if (matchMark(*(data_ptr + result.used), onemark, tolerance, excess))
+        result.data = (result.data << 1) | 1;
+      else if (matchMark(*(data_ptr + result.used), zeromark, tolerance,
+               excess))
+        result.data <<= 1;  // The bit is a '0'.
+      else
+        result.success = false;
+      if (result.success) result.used++;
     }
   }
-  result.success = true;
   if (!MSBfirst) result.data = reverseBits(result.data, nbits);
   return result;
 }
@@ -1245,20 +1345,23 @@ match_result_t IRrecv::matchData(
 /// @param[in] excess Nr. of uSeconds. (Def: kMarkExcess)
 /// @param[in] MSBfirst Bit order to save the data in. (Def: true)
 ///   true is Most Significant Bit First Order, false is Least Significant First
+/// @param[in] expectlastspace Do we expect a space at the end of the message?
 /// @return If successful, how many buffer entries were used. Otherwise 0.
 uint16_t IRrecv::matchBytes(volatile uint16_t *data_ptr, uint8_t *result_ptr,
                             const uint16_t remaining, const uint16_t nbytes,
                             const uint16_t onemark, const uint32_t onespace,
                             const uint16_t zeromark, const uint32_t zerospace,
                             const uint8_t tolerance, const int16_t excess,
-                            const bool MSBfirst) {
+                            const bool MSBfirst, const bool expectlastspace) {
   // Check if there is enough capture buffer to possibly have the desired bytes.
-  if (remaining < nbytes * 8 * 2) return 0;  // Nope, so abort.
+  if (remaining + expectlastspace < (nbytes * 8 * 2) + 1)
+    return 0;  // Nope, so abort.
   uint16_t offset = 0;
   for (uint16_t byte_pos = 0; byte_pos < nbytes; byte_pos++) {
+    bool lastspace = (byte_pos + 1 == nbytes) ? expectlastspace : true;
     match_result_t result = matchData(data_ptr + offset, 8, onemark, onespace,
                                       zeromark, zerospace, tolerance, excess,
-                                      MSBfirst);
+                                      MSBfirst, lastspace);
     if (result.success == false) return 0;  // Fail
     result_ptr[byte_pos] = (uint8_t)result.data;
     offset += result.used;
@@ -1316,8 +1419,10 @@ uint16_t IRrecv::_matchGeneric(volatile uint16_t *data_ptr,
                               const bool MSBfirst) {
   // If we are expecting byte sizes, check it's a factor of 8 or fail.
   if (!use_bits && nbits % 8 != 0)  return 0;
+  // Calculate if we expect a trailing space in the data section.
+  const bool kexpectspace = footermark || (onespace != zerospace);
   // Calculate how much remaining buffer is required.
-  uint16_t min_remaining = nbits * 2;
+  uint16_t min_remaining = nbits * 2 - (kexpectspace ? 0 : 1);
 
   if (hdrmark) min_remaining++;
   if (hdrspace) min_remaining++;
@@ -1340,7 +1445,7 @@ uint16_t IRrecv::_matchGeneric(volatile uint16_t *data_ptr,
     match_result_t result = IRrecv::matchData(data_ptr + offset, nbits,
                                               onemark, onespace,
                                               zeromark, zerospace, tolerance,
-                                              excess, MSBfirst);
+                                              excess, MSBfirst, kexpectspace);
     if (!result.success) return 0;
     *result_bits_ptr = result.data;
     offset += result.used;
@@ -1349,7 +1454,7 @@ uint16_t IRrecv::_matchGeneric(volatile uint16_t *data_ptr,
                                             remaining - offset, nbits / 8,
                                             onemark, onespace,
                                             zeromark, zerospace, tolerance,
-                                            excess, MSBfirst);
+                                            excess, MSBfirst, kexpectspace);
     if (!data_used) return 0;
     offset += data_used;
   }
@@ -1779,4 +1884,11 @@ uint16_t IRrecv::matchManchesterData(volatile const uint16_t *data_ptr,
   *result_ptr = GETBITS64(data, 0, nbits);
   return offset;
 }
+
+#if UNIT_TEST
+/// Unit test helper to get access to the params structure.
+volatile irparams_t *IRrecv::_getParamsPtr(void) {
+  return &params;
+}
+#endif  // UNIT_TEST
 // End of IRrecv class -------------------

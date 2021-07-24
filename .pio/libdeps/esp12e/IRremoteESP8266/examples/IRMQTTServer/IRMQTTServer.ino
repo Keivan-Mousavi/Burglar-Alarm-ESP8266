@@ -34,7 +34,7 @@
  *     - ArduinoJson (https://arduinojson.org/) (Version >= 6.0)
  *     - PubSubClient (https://pubsubclient.knolleary.net/) (Version >= 2.8.0)
  *     - WiFiManager (https://github.com/tzapu/WiFiManager)
- *                   (ESP8266: Version >= 0.14, ESP32: 'development' branch.)
+ *                   (ESP8266: Version >= 0.14, ESP32: 'master' branch.)
  *   o Use the smallest non-zero FILESYSTEM size you can for your board.
  *     (See the Tools -> Flash Size menu)
  *
@@ -1000,6 +1000,8 @@ String htmlHeader(const String title, const String h1_text) {
   html += title;
   html += F("</title><meta http-equiv=\"Content-Type\" "
             "content=\"text/html;charset=utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,"
+            "initial-scale=1.0,minimum-scale=1.0,maximum-scale=5.0\">"
             "</head><body><center><h1>");
   if (h1_text.length())
     html += h1_text;
@@ -2141,6 +2143,8 @@ void setup(void) {
   if (mdns.begin(Hostname)) {
 #endif  // ESP8266
     debug("MDNS responder started");
+    // Announce http tcp service on kHttpPort
+    mdns.addService("http", "tcp", kHttpPort);
   }
 #endif  // MDNS_ENABLE
 
@@ -2589,6 +2593,9 @@ void sendMQTTDiscovery(const char *topic) {
 #endif  // MQTT_ENABLE
 
 void loop(void) {
+#if MDNS_ENABLE && defined(ESP8266)
+  mdns.update();
+#endif  // MDNS_ENABLE and ESP8266
   server.handleClient();  // Handle any web activity
 
 #if MQTT_ENABLE

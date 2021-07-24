@@ -53,6 +53,8 @@ using irutils::addIntToString;
 using irutils::addLabeledString;
 using irutils::addModeToString;
 using irutils::addModelToString;
+using irutils::addSwingHToString;
+using irutils::addSwingVToString;
 using irutils::addTempToString;
 using irutils::minsToString;
 using irutils::setBit;
@@ -453,7 +455,9 @@ void IRPanasonicAc::setSwingHorizontal(const uint8_t desired_direction) {
 void IRPanasonicAc::setFan(const uint8_t speed) {
   switch (speed) {
     case kPanasonicAcFanMin:
+    case kPanasonicAcFanLow:
     case kPanasonicAcFanMed:
+    case kPanasonicAcFanHigh:
     case kPanasonicAcFanMax:
     case kPanasonicAcFanAuto:
       setBits(&remote_state[16], kHighNibble, kNibbleSize,
@@ -666,9 +670,9 @@ uint8_t IRPanasonicAc::convertMode(const stdAc::opmode_t mode) {
 uint8_t IRPanasonicAc::convertFan(const stdAc::fanspeed_t speed) {
   switch (speed) {
     case stdAc::fanspeed_t::kMin:    return kPanasonicAcFanMin;
-    case stdAc::fanspeed_t::kLow:    return kPanasonicAcFanMin + 1;
-    case stdAc::fanspeed_t::kMedium: return kPanasonicAcFanMin + 2;
-    case stdAc::fanspeed_t::kHigh:   return kPanasonicAcFanMin + 3;
+    case stdAc::fanspeed_t::kLow:    return kPanasonicAcFanLow;
+    case stdAc::fanspeed_t::kMedium: return kPanasonicAcFanMed;
+    case stdAc::fanspeed_t::kHigh:   return kPanasonicAcFanHigh;
     case stdAc::fanspeed_t::kMax:    return kPanasonicAcFanMax;
     default:                         return kPanasonicAcFanAuto;
   }
@@ -721,9 +725,9 @@ stdAc::opmode_t IRPanasonicAc::toCommonMode(const uint8_t mode) {
 stdAc::fanspeed_t IRPanasonicAc::toCommonFanSpeed(const uint8_t spd) {
   switch (spd) {
     case kPanasonicAcFanMax:     return stdAc::fanspeed_t::kMax;
-    case kPanasonicAcFanMin + 3: return stdAc::fanspeed_t::kHigh;
-    case kPanasonicAcFanMin + 2: return stdAc::fanspeed_t::kMedium;
-    case kPanasonicAcFanMin + 1: return stdAc::fanspeed_t::kLow;
+    case kPanasonicAcFanHigh:    return stdAc::fanspeed_t::kHigh;
+    case kPanasonicAcFanMed:     return stdAc::fanspeed_t::kMedium;
+    case kPanasonicAcFanLow:     return stdAc::fanspeed_t::kLow;
     case kPanasonicAcFanMin:     return stdAc::fanspeed_t::kMin;
     default:                     return stdAc::fanspeed_t::kAuto;
   }
@@ -789,51 +793,39 @@ String IRPanasonicAc::toString(void) {
   result += addModeToString(getMode(), kPanasonicAcAuto, kPanasonicAcCool,
                             kPanasonicAcHeat, kPanasonicAcDry, kPanasonicAcFan);
   result += addTempToString(getTemp());
-  result += addFanToString(getFan(), kPanasonicAcFanMax, kPanasonicAcFanMin,
-                           kPanasonicAcFanAuto, kPanasonicAcFanAuto,
-                           kPanasonicAcFanMed);
-  result += addIntToString(getSwingVertical(), kSwingVStr);
-  result += kSpaceLBraceStr;
-  switch (getSwingVertical()) {
-    case kPanasonicAcSwingVAuto:    result += kAutoStr; break;
-    case kPanasonicAcSwingVHighest: result += kHighestStr; break;
-    case kPanasonicAcSwingVHigh:    result += kHighStr; break;
-    case kPanasonicAcSwingVMiddle:  result += kMiddleStr; break;
-    case kPanasonicAcSwingVLow:     result += kLowStr; break;
-    case kPanasonicAcSwingVLowest:  result += kLowestStr; break;
-    default:                        result += kUnknownStr; break;
-  }
-  result += ')';
+  result += addFanToString(getFan(), kPanasonicAcFanHigh, kPanasonicAcFanLow,
+                           kPanasonicAcFanAuto, kPanasonicAcFanMin,
+                           kPanasonicAcFanMed, kPanasonicAcFanMax);
+  result += addSwingVToString(getSwingVertical(), kPanasonicAcSwingVAuto,
+                              kPanasonicAcSwingVHighest,
+                              kPanasonicAcSwingVHigh,
+                              kPanasonicAcSwingVAuto,  // Upper Middle is unused
+                              kPanasonicAcSwingVMiddle,
+                              kPanasonicAcSwingVAuto,  // Lower Middle is unused
+                              kPanasonicAcSwingVLow,
+                              kPanasonicAcSwingVLowest,
+                              // Below are unused.
+                              kPanasonicAcSwingVAuto,
+                              kPanasonicAcSwingVAuto,
+                              kPanasonicAcSwingVAuto,
+                              kPanasonicAcSwingVAuto);
   switch (getModel()) {
     case kPanasonicJke:
     case kPanasonicCkp:
       break;  // No Horizontal Swing support.
     default:
-      result += addIntToString(getSwingHorizontal(), kSwingHStr);
-      result += kSpaceLBraceStr;
-      switch (getSwingHorizontal()) {
-        case kPanasonicAcSwingHAuto:
-          result += kAutoStr;
-          break;
-        case kPanasonicAcSwingHFullLeft:
-          result += kMaxLeftStr;
-          break;
-        case kPanasonicAcSwingHLeft:
-          result += kLeftStr;
-          break;
-        case kPanasonicAcSwingHMiddle:
-          result += kMiddleStr;
-          break;
-        case kPanasonicAcSwingHFullRight:
-          result += kMaxRightStr;
-          break;
-        case kPanasonicAcSwingHRight:
-          result += kRightStr;
-          break;
-        default:
-          result += kUnknownStr;
-      }
-      result += ')';
+      result += addSwingHToString(getSwingHorizontal(), kPanasonicAcSwingHAuto,
+                                  kPanasonicAcSwingHFullLeft,
+                                  kPanasonicAcSwingHLeft,
+                                  kPanasonicAcSwingHMiddle,
+                                  kPanasonicAcSwingHRight,
+                                  kPanasonicAcSwingHFullRight,
+                                  // Below are unused.
+                                  kPanasonicAcSwingHAuto,
+                                  kPanasonicAcSwingHAuto,
+                                  kPanasonicAcSwingHAuto,
+                                  kPanasonicAcSwingHAuto,
+                                  kPanasonicAcSwingHAuto);
   }
   result += addBoolToString(getQuiet(), kQuietStr);
   result += addBoolToString(getPowerful(), kPowerfulStr);
@@ -1294,18 +1286,20 @@ String IRPanasonicAc32::toString(void) const {
                            kPanasonicAc32FanAuto, kPanasonicAc32FanMin,
                            kPanasonicAc32FanMed, kPanasonicAc32FanMax);
   result += addBoolToString(_.SwingH, kSwingHStr);
-  result += addIntToString(getSwingVertical(), kSwingVStr);
-  result += kSpaceLBraceStr;
-  switch (getSwingVertical()) {
-    case kPanasonicAc32SwingVAuto:  result += kAutoStr; break;
-    case kPanasonicAcSwingVHighest: result += kHighestStr; break;
-    case kPanasonicAcSwingVHigh:    result += kHighStr; break;
-    case kPanasonicAcSwingVMiddle:  result += kMiddleStr; break;
-    case kPanasonicAcSwingVLow:     result += kLowStr; break;
-    case kPanasonicAcSwingVLowest:  result += kLowestStr; break;
-    default:                        result += kUnknownStr; break;
-  }
-  result += ')';
+  result += addSwingVToString(getSwingVertical(),
+                              kPanasonicAc32SwingVAuto,
+                              kPanasonicAcSwingVHighest,
+                              kPanasonicAcSwingVHigh,
+                              kPanasonicAc32SwingVAuto,  // Upper Middle unused
+                              kPanasonicAcSwingVMiddle,
+                              kPanasonicAc32SwingVAuto,  // Lower Middle unused
+                              kPanasonicAcSwingVLow,
+                              kPanasonicAcSwingVLowest,
+                              // Below are unused.
+                              kPanasonicAc32SwingVAuto,
+                              kPanasonicAc32SwingVAuto,
+                              kPanasonicAc32SwingVAuto,
+                              kPanasonicAc32SwingVAuto);
   return result;
 }
 
