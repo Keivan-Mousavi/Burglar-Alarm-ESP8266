@@ -6,8 +6,8 @@
 #include <IRsend.h>
 #include <ArduinoJson.h>
 
-const char *ssid = "Keivan&Mina";
-const char *password = "K@0e#5I%8v^3A*7n?";
+const char *ssid = "***";
+const char *password = "***";
 
 const uint16_t kIrLed = 4;
 IRsend irsend(kIrLed);
@@ -48,8 +48,6 @@ void SoundCheckInviroment()
 
     if (val_analog > 500)
     {
-      Serial.println(val_analog);
-
       HTTPClient http;
 
       String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/CheckCamera?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
@@ -107,7 +105,7 @@ void ControllerTV()
 }
 
 void loop()
-{  
+{
   if (WiFi.status() == WL_CONNECTED)
   {
     SoundCheckInviroment();
