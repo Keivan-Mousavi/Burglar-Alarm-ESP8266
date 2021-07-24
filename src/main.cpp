@@ -1,15 +1,18 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <ArduinoJson.h>
 
-const char *ssid = "***";
-const char *password = "***";
+const char *ssid = "Keivan&Mina";
+const char *password = "K@0e#5I%8v^3A*7n?";
 
 const uint16_t kIrLed = 4;
 IRsend irsend(kIrLed);
+
+WiFiClient wifiClient;
 
 int sound_digital = 4;
 int sound_analog = 0;
@@ -50,7 +53,7 @@ void SoundCheckInviroment()
       HTTPClient http;
 
       String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/CheckCamera?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
-      http.begin(url);
+      http.begin(wifiClient, url);
 
       int httpCode = http.GET();
 
@@ -86,7 +89,7 @@ void ControllerTV()
     HTTPClient http;
 
     String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/CheckCamera?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
-    http.begin(url);
+    http.begin(wifiClient, url);
 
     int httpCode = http.GET();
 
@@ -104,7 +107,7 @@ void ControllerTV()
 }
 
 void loop()
-{
+{  
   if (WiFi.status() == WL_CONNECTED)
   {
     SoundCheckInviroment();
@@ -114,7 +117,7 @@ void loop()
       HTTPClient http;
 
       String url = "http://burglaralarm.persianprogrammer.com/ManageNotification/ListAllControllerTV?serial=d6ac5b88-35e9-461f-b911-2f68d4cb9c44";
-      http.begin(url);
+      http.begin(wifiClient, url);
 
       irsend.begin();
 
